@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Java
+*.class
+*.jar
+/target/
+
+# Apache
+.htpasswd
+
+# Eclipse
+/target/
+.classpath
+.project
+.settings/
+
+# Temporary
+~/
+
+# Local test data
+/testdata/*.properties
+/testdata/anchoko.txt

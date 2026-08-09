@@ -84,7 +84,7 @@ public class Downloader {
 		if ((regionName == null) || regionName.isEmpty()) {
 		    throw new IllegalArgumentException("Missing required property 'region'. Please check your properties file.");
 		}
-		Region region = Region.of(properties.getProperty("region"));
+		Region region = Region.of(regionName);
 
 		downloadDir = new File(System.getProperty("user.home"), "Downloads");
 
@@ -219,7 +219,7 @@ public class Downloader {
 	 */
 	private void changeDirectory(String userInput) {
 		String targetPrefix = userInput.substring(CD.length());
-		targetPrefix = removeQuoto(targetPrefix.trim());
+		targetPrefix = removeQuote(targetPrefix.trim());
 		String nextPrefix = resolveTargetPrefix(currentPrefix, targetPrefix);
 		if ((nextPrefix != null) && isDirectoryExist(nextPrefix)) {
 			currentPrefix = nextPrefix;
@@ -299,7 +299,7 @@ public class Downloader {
 	 */
 	private void download(String userInput, Scanner scanner) throws IOException, NoSuchKeyException {
 		String filePath = userInput.substring(DL.length());
-		filePath = removeQuoto(filePath.trim());
+		filePath = removeQuote(filePath.trim());
 
 		if (filePath.endsWith("/")) {
 			System.out.println("You cannot download directory.");
@@ -372,7 +372,7 @@ public class Downloader {
 	 * @param str string.
 	 * @return string quotation removed.
 	 */
-	private static String removeQuoto(String str) {
+	private static String removeQuote(String str) {
 		if ((str.startsWith("\"") && str.endsWith("\"")) ||
 				(str.startsWith("\'") && str.endsWith("\'")))	{
 			str = str.substring(1, str.length() - 1);

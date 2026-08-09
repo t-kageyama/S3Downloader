@@ -7,9 +7,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
 import java.util.Properties;
-import java.util.Scanner;
+
+import org.jline.reader.History.Entry;
+import org.jline.reader.LineReader;
+import org.jline.reader.LineReaderBuilder;
+import org.jline.reader.impl.history.DefaultHistory;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.TerminalBuilder;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -68,21 +76,21 @@ public class Downloader {
 	private int exec() throws IOException, IllegalArgumentException {
 		String accessKeyId = properties.getProperty("accessKeyId");
 		if ((accessKeyId == null) || accessKeyId.isEmpty()) {
-		    throw new IllegalArgumentException("Missing required property 'accessKeyId'. Please check your properties file.");
+			throw new IllegalArgumentException("Missing required property 'accessKeyId'. Please check your properties file.");
 		}
 		String secretAccessKey = properties.getProperty("secretAccessKey");
 		if ((secretAccessKey == null) || secretAccessKey.isEmpty()) {
-		    throw new IllegalArgumentException("Missing required property 'secretAccessKey'. Please check your properties file.");
+			throw new IllegalArgumentException("Missing required property 'secretAccessKey'. Please check your properties file.");
 		}
 		AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
 
 		bucket = properties.getProperty("bucket");
 		if ((bucket == null) || bucket.isEmpty()) {
-		    throw new IllegalArgumentException("Missing required property 'bucket'. Please check your properties file.");
+			throw new IllegalArgumentException("Missing required property 'bucket'. Please check your properties file.");
 		}
 		String regionName = properties.getProperty("region");
 		if ((regionName == null) || regionName.isEmpty()) {
-		    throw new IllegalArgumentException("Missing required property 'region'. Please check your properties file.");
+			throw new IllegalArgumentException("Missing required property 'region'. Please check your properties file.");
 		}
 		Region region = Region.of(regionName);
 
@@ -92,14 +100,16 @@ public class Downloader {
 					.region(region)
 					.credentialsProvider(StaticCredentialsProvider.create(credentials))
 					.build();
-				Scanner scanner = new Scanner(System.in)) {
+				Terminal terminal = TerminalBuilder.builder().system(true).build();) {
+
+			LineReader reader = LineReaderBuilder.builder().terminal(terminal).build();
 
 			this.s3 = s3;
 
 			if ((download != null) && !download.isEmpty()) {	// download command line argument & exit process.
 				String command = String.format("%s \"%s\"", DL, download);
 				try {
-					download(command, scanner);
+					download(command, reader);
 					System.out.println("file: " + download + " downloaded.");
 					return 0;	// argument file download success.
 				} catch (NoSuchKeyException e) {
@@ -108,13 +118,10 @@ public class Downloader {
 				}
 			}
 
-			showPrompt();
-
-			while (scanner.hasNextLine()) {
-				String line = scanner.nextLine();
+			while (true) {
+				String line = reader.readLine("input[/" + currentPrefix + "] $ ");
 				if (!EXIT.equals(line.trim())) {
-					execUserInput(line, scanner);
-					showPrompt();
+					execUserInput(line, reader);
 				} else {
 					System.out.println("Bye!");
 					break;
@@ -128,11 +135,11 @@ public class Downloader {
 	/**
 	 * execute user input.
 	 * @param line user input line.
-	 * @param scanner user input scanner.
+	 * @param reader user input line reader.
 	 * @return true when user selected exit.
 	 * @throws IOException 
 	 */
-	private void execUserInput(String line, Scanner scanner) throws IOException {
+	private void execUserInput(String line, LineReader reader) throws IOException {
 		String trimmed = line.trim();
 		if (!trimmed.isEmpty()) {	// do user input.
 			boolean unknownCommand = false;
@@ -151,7 +158,7 @@ public class Downloader {
 						changeDirectory(trimmed);
 					} else if (DL.equals(splits[0])) {
 						try {
-							download(trimmed, scanner);
+							download(trimmed, reader);
 						} catch (NoSuchKeyException e) {
 							//e.printStackTrace(System.err);
 							String fileName = trimmed.substring(DL.length()).trim();
@@ -166,6 +173,7 @@ public class Downloader {
 			}
 
 			if (unknownCommand) {
+				removeLastUserInputFromHistory(reader);
 				System.out.println("Unknown command.");
 			}
 		}
@@ -234,6 +242,9 @@ public class Downloader {
 	 * @return true if exist.
 	 */
 	private boolean isDirectoryExist(String nextPrefix) {
+		if (!nextPrefix.endsWith("/") && !nextPrefix.isEmpty()) {
+			nextPrefix += "/";
+		}
 		ListObjectsV2Request request = ListObjectsV2Request.builder()
 				.bucket(bucket)
 				.prefix(nextPrefix)
@@ -293,11 +304,11 @@ public class Downloader {
 	/**
 	 * download.
 	 * @param userInput user input string.
-	 * @param scanner user input scanner.
+	 * @param reader user input line reader.
 	 * @throws IOException
 	 * @throws NoSuchKeyException
 	 */
-	private void download(String userInput, Scanner scanner) throws IOException, NoSuchKeyException {
+	private void download(String userInput, LineReader reader) throws IOException, NoSuchKeyException {
 		String filePath = userInput.substring(DL.length());
 		filePath = removeQuote(filePath.trim());
 
@@ -318,7 +329,7 @@ public class Downloader {
 		}
 		String[] fileNames = downloadFilePath.split("/");
 
-		File newDownloadFile = null;
+		File renameDownloadFile = null;
 		File downloadFile = new File(downloadDir, fileNames[fileNames.length - 1]);
 		if (downloadFile.exists()) {
 
@@ -336,34 +347,50 @@ public class Downloader {
 			int count = 1;
 			while (true) {
 				String newFileName = prefix + " (" + count + ")" + suffix;
-				newDownloadFile = new File(downloadDir, newFileName);
-				if (!newDownloadFile.exists()) {
+				renameDownloadFile = new File(downloadDir, newFileName);
+				if (!renameDownloadFile.exists()) {
 					break;
 				}
 				count++;
 			}
 
-			promptOverwrite(downloadFile, newDownloadFile);
-			while (scanner.hasNextLine()) {
-				String line = scanner.nextLine();
+			while (true) {
+				String line = reader.readLine(promptForOverwrite(downloadFile, renameDownloadFile));
+				removeLastUserInputFromHistory(reader);
 				line = line.trim();
 				if ("1".equals(line)) {
-					newDownloadFile = null;
+					renameDownloadFile = null;
 					break;
 				} else if ("2".equals(line)) {
 					break;
 				} else if ("3".equals(line)) {
 					return;
 				}
-
-				promptOverwrite(downloadFile, newDownloadFile);
 			}
 		}
 
-		Path output = newDownloadFile == null ? downloadFile.toPath() : newDownloadFile.toPath();
+		Path output = renameDownloadFile == null ? downloadFile.toPath() : renameDownloadFile.toPath();
 		GetObjectRequest request = GetObjectRequest.builder().bucket(bucket).key(downloadFilePath).build();
 		try (ResponseInputStream<GetObjectResponse> response = s3.getObject(request)) {
 			Files.copy(response, output, StandardCopyOption.REPLACE_EXISTING);
+		}
+	}
+
+	/**
+	 * remove last user input from history.
+	 * @param reader line reader.
+	 * @throws IOException
+	 */
+	private static void removeLastUserInputFromHistory(LineReader reader) throws IOException {
+		DefaultHistory history = (DefaultHistory) reader.getHistory();
+		List<String> itemsToKeep = new ArrayList<>();
+		for (Entry entry : history) {
+			itemsToKeep.add(entry.line());
+		}
+		history.purge();
+		for (int i = 0; i < itemsToKeep.size() - 1; i++) {
+			String line = itemsToKeep.get(i);
+			history.add(line);
 		}
 	}
 
@@ -381,15 +408,18 @@ public class Downloader {
 	}
 
 	/**
-	 * prompt overwrite.
-	 * @param downloadFile existing file.
+	 * get prompt overwrite message.
+	 * @param downloadFile
+	 * @param newDownloadFile
+	 * @return prompt overwrite message.
 	 */
-	private static void promptOverwrite(File downloadFile, File newDownloadFile) {
-		System.out.println(downloadFile.getAbsolutePath() + " exists");
-		System.out.println("1: overwrite.");
-		System.out.println("2: store in name " + newDownloadFile.getName());
-		System.out.println("3: abort.");
-		System.out.print("choose[1-3] $ ");
+	private static String promptForOverwrite(File downloadFile, File newDownloadFile) {
+		StringBuilder sb = new StringBuilder(downloadFile.getAbsolutePath() + " exists\n");
+		sb.append("1: overwrite.\n");
+		sb.append("2: store in name ").append(newDownloadFile.getName()).append("\n");
+		sb.append("3: abort.\n");
+		sb.append("choose[1-3] $ ");
+		return sb.toString();
 	}
 
 	/**
@@ -402,13 +432,6 @@ public class Downloader {
 		System.out.println("lsr	list current directory (prefix) & beneath.");
 		System.out.println("cd directory-path	change current directory (prefix).");
 		System.out.println("dl file-or-directory-path	download file (prefix).");
-	}
-
-	/**
-	 * show input.
-	 */
-	private void showPrompt() {
-		System.out.print("input[/" + currentPrefix + "] $ ");	// wait next input.
 	}
 
 	/**

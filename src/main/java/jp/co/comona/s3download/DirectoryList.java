@@ -132,7 +132,7 @@ public class DirectoryList {
 	 * @param item item to recursive.
 	 */
 	private void doRecursive(ListItem item) {
-		String newSerchPrefix = searchPrefix + item.getName();
-		downloader.list(newSerchPrefix, recursive, depth + 1);
+		String newSearchPrefix = searchPrefix + item.getName();
+		downloader.list(newSearchPrefix, recursive, depth + 1);
 	}
 }

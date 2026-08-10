@@ -165,6 +165,15 @@ S3 Downloader is intentionally designed to solve one problem well:
 
 Advanced S3 operations should be handled by dedicated S3 management tools.
 
+## Version History
+
+### 1.1.0
+- Added command history navigation using the Up and Down arrow keys. Invalid commands and input during file downloads are excluded from the history.
+- Fixed an issue where `cd` could incorrectly accept a non-existent directory when its name was a prefix of an existing directory.
+
+### 1.0.0
+- Initial release.
+
 ## License
 
 This project is licensed under the MIT License.

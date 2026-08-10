@@ -18,6 +18,7 @@ Japanese version: [README.ja.md](README.ja.md).
 7. [Commands](#commands)
 8. [Planned Features](#planned-features)
 9. [Philosophy](#philosophy)
+9. [Version History](#version-history)
 10. [License](#license)
 
 ## Overview
@@ -151,7 +152,6 @@ This is suitable for shell scripts, batch files, or automation.
 The following features may be added in future releases.
 Implementation order is not fixed.
 
-- Command history
 - Arguments for `ls` and `lsr`
 - Tab completion
 - Wildcard support

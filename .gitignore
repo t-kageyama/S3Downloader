@@ -13,7 +13,6 @@ Thumbs.db
 .htpasswd
 
 # Eclipse
-/target/
 .classpath
 .project
 .settings/

@@ -18,6 +18,7 @@ Japanese version: [README.ja.md](README.ja.md).
 7. [Commands](#commands)
 8. [Planned Features](#planned-features)
 9. [Philosophy](#philosophy)
+9. [Version History](#version-history)
 10. [License](#license)
 
 ## Overview
@@ -151,8 +152,6 @@ This is suitable for shell scripts, batch files, or automation.
 The following features may be added in future releases.
 Implementation order is not fixed.
 
-- Command history
-- Arguments for `ls` and `lsr`
 - Tab completion
 - Wildcard support
 - Case-insensitive search
@@ -166,6 +165,10 @@ S3 Downloader is intentionally designed to solve one problem well:
 Advanced S3 operations should be handled by dedicated S3 management tools.
 
 ## Version History
+
+### 1.2.0
+- Added arguments to `ls` and `lsr`
+- If the argument ends with `/`, it is treated as a directory path. Otherwise, both files and directories with an exact name match are listed.
 
 ### 1.1.0
 - Added command history navigation using the Up and Down arrow keys. Invalid commands and input during file downloads are excluded from the history.

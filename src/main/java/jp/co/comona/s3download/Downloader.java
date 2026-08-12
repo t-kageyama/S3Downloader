@@ -148,9 +148,9 @@ public class Downloader {
 			} else if (PWD.equals(trimmed)) {
 				System.out.println("/" + currentPrefix);
 			} else if (LS.equals(trimmed)) {
-				listCurrentDirectory(false);
+				listDirectory(null, false);
 			} else if (LSR.equals(trimmed)) {
-				listCurrentDirectory(true);
+				listDirectory(null, true);
 			} else {
 				String[] splits = trimmed.split("\\s+");
 				if (splits.length > 1) {
@@ -163,6 +163,14 @@ public class Downloader {
 							//e.printStackTrace(System.err);
 							String fileName = trimmed.substring(DL.length()).trim();
 							System.out.println("file: " + fileName + " not found.");
+						}
+					} else if (LS.equals(splits[0])) {	// ls command with argument.
+						if (!listDirectory(trimmed, false)) {
+							unknownCommand = true;
+						}
+					} else if (LSR.equals(splits[0])) {	// lsr command with argument.
+						if (!listDirectory(trimmed, true)) {
+							unknownCommand = true;
 						}
 					} else {
 						unknownCommand = true;
@@ -180,12 +188,44 @@ public class Downloader {
 	}
 
 	/**
-	 * list current directory.
+	 * list directory.
+	 * @param userInput user input. null if current directory.
 	 * @param recursive true if recursive.
+	 * @return true if valid command.
+	 * @throws IOException 
 	 */
-	private void listCurrentDirectory(boolean recursive) {
+	private boolean listDirectory(String userInput, boolean recursive) throws IOException {
 		String searchPrefix = currentPrefix.isEmpty() ? "" : currentPrefix + "/";
-		list(searchPrefix, recursive, 0);
+
+		if (userInput != null) {	// list with argument.
+			String[] splits = userInput.split("\\s+");
+			String argument = removeQuote(userInput.substring(splits[0].length()).trim());
+			if (!argument.isEmpty()) {
+				int index = argument.indexOf('*');	// currently not supporting wild card.
+				if (index > -1) {
+					return false;
+				}
+				index = argument.indexOf('?');
+				if (index > -1) {
+					return false;
+				}
+
+				String nextPrefix = resolveTargetPrefix(currentPrefix, argument);
+				if (nextPrefix != null) {
+					searchPrefix = nextPrefix;
+					if (argument.endsWith("/")) {
+						searchPrefix += "/";	// user wants search directory.
+					}
+				} else {
+					return false;	// path resolve failed.
+				}
+			} else {
+				return false;	// empty.
+			}
+		}
+
+		list(searchPrefix, recursive, 0, userInput != null);
+		return true;
 	}
 
 	/**
@@ -193,8 +233,9 @@ public class Downloader {
 	 * @param searchPrefix search prefix.
 	 * @param recursive true if recursive.
 	 * @param depth of next list.
+	 * @param hasArgument list command has argument.
 	 */
-	protected void list(String searchPrefix, boolean recursive, int depth) {
+	protected void list(String searchPrefix, boolean recursive, int depth, boolean hasArgument) {
 		ListObjectsV2Request request = ListObjectsV2Request.builder()
 				.bucket(bucket)
 				.prefix(searchPrefix)
@@ -204,17 +245,43 @@ public class Downloader {
 		DirectoryList dirList = new DirectoryList(searchPrefix, this);
 		dirList.setRecursive(recursive);
 		dirList.setDepth(depth);
+		dirList.setHasArgument(hasArgument);
+
+		String searchName = null;
+		if (hasArgument && !searchPrefix.endsWith("/") && (depth == 0)) {
+			String[] searchNames = searchPrefix.split("/");
+			searchName = searchNames[searchNames.length - 1];
+		}
 
 		for (ListObjectsV2Response response : s3.listObjectsV2Paginator(request)) {
 			for (CommonPrefix cmnPrefix : response.commonPrefixes()) {
-				dirList.addDirectory(cmnPrefix);
+				if (searchName == null) {
+					dirList.addDirectory(cmnPrefix);
+				} else {
+					String path = cmnPrefix.prefix();
+					String[] names = path.split("/");
+					if (searchName.equals(names[names.length - 1])) {
+						dirList.addDirectory(cmnPrefix);
+						dirList.setHitDirectory(true);
+					}
+				}
 			}
 
 			for (S3Object s3Obj : response.contents()) {
 				if (searchPrefix.equals(s3Obj.key())) {	// .
-					continue;
+					if (searchName == null) {	// do not 'continue' when argument specified.
+						continue;
+					}
 				}
-				dirList.addFile(s3Obj);
+				if (searchName == null) {
+					dirList.addFile(s3Obj);
+				} else {
+					String path = s3Obj.key();
+					String[] names = path.split("/");
+					if (searchName.equals(names[names.length - 1])) {
+						dirList.addFile(s3Obj);
+					}
+				}
 			}
 		}
 

@@ -24,6 +24,8 @@ public class DirectoryList {
 	private final List<ListItem> files;
 	private int depth = 0;
 	private boolean recursive = false;
+	private boolean hasArgument = false;
+	private boolean hitDirectory = false;
 
 	/**
 	 * constructor.
@@ -85,7 +87,7 @@ public class DirectoryList {
 
 		for (ListItem item : directories) {
 			System.out.println(leadBlock + item.getName());
-			if (recursive) {
+			if (recursive || hitDirectory) {
 				doRecursive(item);
 			}
 		}
@@ -132,7 +134,44 @@ public class DirectoryList {
 	 * @param item item to recursive.
 	 */
 	private void doRecursive(ListItem item) {
-		String newSearchPrefix = searchPrefix + item.getName();
-		downloader.list(newSearchPrefix, recursive, depth + 1);
+		String newSearchPrefix = searchPrefix;
+		if (hitDirectory) {
+			newSearchPrefix += "/";
+		} else {
+			newSearchPrefix += item.getName();
+		}
+		downloader.list(newSearchPrefix, recursive, depth + 1, hasArgument);
+	}
+
+	/**
+	 * has argument?
+	 * @return true if has argument.
+	 */
+	protected boolean hasArgument() {
+		return hasArgument;
+	}
+
+	/**
+	 * set has argument.
+	 * @param hasArgument true if has argument.
+	 */
+	protected void setHasArgument(boolean hasArgument) {
+		this.hasArgument = hasArgument;
+	}
+
+	/**
+	 * is hit directory.
+	 * @return true if hit directory.
+	 */
+	public boolean isHitDirectory() {
+		return hitDirectory;
+	}
+
+	/**
+	 * set hit directory.
+	 * @param hitDirectory true if hit directory.
+	 */
+	public void setHitDirectory(boolean hitDirectory) {
+		this.hitDirectory = hitDirectory;
 	}
 }

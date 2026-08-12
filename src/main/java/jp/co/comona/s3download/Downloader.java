@@ -201,7 +201,7 @@ public class Downloader {
 			String[] splits = userInput.split("\\s+");
 			String argument = removeQuote(userInput.substring(splits[0].length()).trim());
 			if (!argument.isEmpty()) {
-				int index = argument.indexOf('*');
+				int index = argument.indexOf('*');	// currently not supporting wild card.
 				if (index > -1) {
 					return false;
 				}
@@ -214,10 +214,10 @@ public class Downloader {
 				if (nextPrefix != null) {
 					searchPrefix = nextPrefix;
 					if (argument.endsWith("/")) {
-						searchPrefix += "/";
+						searchPrefix += "/";	// user wants search directory.
 					}
 				} else {
-					return false;
+					return false;	// path resolve failed.
 				}
 			} else {
 				return false;	// empty.
@@ -269,7 +269,9 @@ public class Downloader {
 
 			for (S3Object s3Obj : response.contents()) {
 				if (searchPrefix.equals(s3Obj.key())) {	// .
-					continue;
+					if (searchName == null) {	// do not 'continue' when argument specified.
+						continue;
+					}
 				}
 				if (searchName == null) {
 					dirList.addFile(s3Obj);

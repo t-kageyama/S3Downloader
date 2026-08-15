@@ -207,7 +207,7 @@ public class Downloader {
 			return false;
 		}
 
-		list(/*searchPrefix*/listArg.getSearchPrefix(), recursive, 0, userInput != null);
+		list(listArg.getSearchPrefix(), recursive, 0, userInput != null);
 		return true;
 	}
 

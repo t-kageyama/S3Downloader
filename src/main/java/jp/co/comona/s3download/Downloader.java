@@ -617,7 +617,9 @@ public class Downloader {
 		System.out.println("help, ?	shows this help.");
 		System.out.println("pwd	show current directory (prefix).");
 		System.out.println("ls	list current directory (prefix).");
+		System.out.println("ls target-path	list target file/directory (prefix). 1 * wilcard allowed.");
 		System.out.println("lsr	list current directory (prefix) & beneath.");
+		System.out.println("lsr target-path	list target file/directory (prefix) & beneath. 1 * wilcard allowed.");
 		System.out.println("cd directory-path	change current directory (prefix).");
 		System.out.println("dl file-or-directory-path	download file (prefix).");
 	}

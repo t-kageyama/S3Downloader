@@ -152,8 +152,10 @@ public class Downloader {
 				System.out.println(DIR_SEPARATOR + currentPrefix);
 			} else if (LS.equals(trimmed)) {
 				listDirectory(null, false);
+				listArg = null;
 			} else if (LSR.equals(trimmed)) {
 				listDirectory(null, true);
+				listArg = null;
 			} else {
 				String[] splits = trimmed.split("\\s+");
 				if (splits.length > 1) {
@@ -171,10 +173,12 @@ public class Downloader {
 						if (!listDirectory(trimmed, false)) {
 							unknownCommand = true;
 						}
+						listArg = null;
 					} else if (LSR.equals(splits[0])) {	// lsr command with argument.
 						if (!listDirectory(trimmed, true)) {
 							unknownCommand = true;
 						}
+						listArg = null;
 					} else {
 						unknownCommand = true;
 					}
@@ -198,34 +202,6 @@ public class Downloader {
 	 * @throws IOException 
 	 */
 	private boolean listDirectory(String userInput, boolean recursive) throws IOException {
-		/*String searchPrefix = currentPrefix.isEmpty() ? "" : currentPrefix + "/";
-
-		if (userInput != null) {	// list with argument.
-			String[] splits = userInput.split("\\s+");
-			String argument = removeQuote(userInput.substring(splits[0].length()).trim());
-			if (!argument.isEmpty()) {
-				int index = argument.indexOf('*');	// currently not supporting wild card.
-				if (index > -1) {
-					return false;
-				}
-				index = argument.indexOf('?');
-				if (index > -1) {
-					return false;
-				}
-
-				String nextPrefix = resolveTargetPrefix(currentPrefix, argument);
-				if (nextPrefix != null) {
-					searchPrefix = nextPrefix;
-					if (argument.endsWith("/")) {
-						searchPrefix += "/";	// user wants search directory.
-					}
-				} else {
-					return false;	// path resolve failed.
-				}
-			} else {
-				return false;	// empty.
-			}
-		}*/
 		listArg = createArgument(userInput, currentPrefix);
 		if (listArg == null) {
 			return false;
@@ -327,17 +303,17 @@ public class Downloader {
 		dirList.setHasArgument(hasArgument);
 
 		String searchName = null;
-		if (hasArgument && !searchPrefix.endsWith(DIR_SEPARATOR) && (depth == 0)) {
-			if (!listArg.isWildcard()) {
-				String[] searchNames = searchPrefix.split(DIR_SEPARATOR);
-				searchName = searchNames[searchNames.length - 1];
-			}
+		if (hasArgument && !searchPrefix.endsWith(DIR_SEPARATOR) && (depth == 0) && !listArg.isWildcard()) {
+			String[] searchNames = searchPrefix.split(DIR_SEPARATOR);
+			searchName = searchNames[searchNames.length - 1];
 		}
 
 		for (ListObjectsV2Response response : s3.listObjectsV2Paginator(request)) {
 			for (CommonPrefix cmnPrefix : response.commonPrefixes()) {
 				if (searchName == null) {
-					dirList.addDirectory(cmnPrefix);	// TODO: wild card check.
+					if (isListTargetDir(cmnPrefix, depth)) {
+						dirList.addDirectory(cmnPrefix);
+					}
 				} else {
 					String path = cmnPrefix.prefix();
 					String[] names = path.split(DIR_SEPARATOR);
@@ -354,8 +330,10 @@ public class Downloader {
 						continue;
 					}
 				}
-				if (searchName == null) {	// TODO: wild card check.
-					dirList.addFile(s3Obj);
+				if (searchName == null) {
+					if (isTargetFile(s3Obj, depth)) {
+						dirList.addFile(s3Obj);
+					}
 				} else {
 					String path = s3Obj.key();
 					String[] names = path.split(DIR_SEPARATOR);
@@ -367,6 +345,68 @@ public class Downloader {
 		}
 
 		dirList.print();
+	}
+
+	/**
+	 * is target directory?
+	 * @param cmnPrefix S3 directory object.
+	 * @param depth depth of list.
+	 * @return true if target.
+	 */
+	private boolean isListTargetDir(CommonPrefix cmnPrefix, int depth) {
+		boolean target = true;
+		if ((depth == 0) && listArg.isWildcard()) {
+			String path = cmnPrefix.prefix();
+			target = isTargetNameForWildcard(path);
+		}		
+
+		return target;
+	}
+
+	/**
+	 * is target file?
+	 * @param s3Obj S3 file object.
+	 * @param depth depth of list.
+	 * @return true if target.
+	 */
+	private boolean isTargetFile(S3Object s3Obj, int depth) {
+		boolean target = true;
+		if ((depth == 0) && listArg.isWildcard()) {
+			if (listArg.isDirectory()) {
+				target = false;
+			} else {
+				String path = s3Obj.key();
+				target = isTargetNameForWildcard(path);
+			}
+		}		
+
+		return target;
+	}
+
+	/**
+	 * is target name for wild card?
+	 * @param key S3 full path name.
+	 * @return true if target.
+	 */
+	private boolean isTargetNameForWildcard(String key) {
+		String[] names = key.split(DIR_SEPARATOR);
+		String name = names[names.length - 1];
+		int index = listArg.getNamePattern().indexOf(ASTERISK);
+		assert(index > -1);
+		if (index > 0) {
+			String start = listArg.getNamePattern().substring(0, index);
+			if (!name.startsWith(start)) {
+				return false;
+			}
+		}
+		if (index < listArg.getNamePattern().length() - 1) {
+			String end = listArg.getNamePattern().substring(index + 1);
+			if (!name.endsWith(end)) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	/**

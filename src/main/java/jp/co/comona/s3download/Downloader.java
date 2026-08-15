@@ -47,6 +47,8 @@ public class Downloader {
 	private static final String LSR = "lsr";
 	private static final String CD = "cd";	// has 1 argument.
 	private static final String DL = "dl";	// has 1 argument.
+	private static final char ASTERISK = '*';
+	private static final String DIR_SEPARATOR = "/";
 
 	private final Properties properties;
 	private final String download;
@@ -54,6 +56,7 @@ public class Downloader {
 	private String bucket = null;
 	private File downloadDir = null;
 	private String currentPrefix = "";
+	private ListArgument listArg = null;
 
 	/**
 	 * constructor.
@@ -146,7 +149,7 @@ public class Downloader {
 			if (HELP.equals(trimmed) || SHORT_HELP.equals(trimmed)) {
 				printHelp();
 			} else if (PWD.equals(trimmed)) {
-				System.out.println("/" + currentPrefix);
+				System.out.println(DIR_SEPARATOR + currentPrefix);
 			} else if (LS.equals(trimmed)) {
 				listDirectory(null, false);
 			} else if (LSR.equals(trimmed)) {
@@ -195,7 +198,7 @@ public class Downloader {
 	 * @throws IOException 
 	 */
 	private boolean listDirectory(String userInput, boolean recursive) throws IOException {
-		String searchPrefix = currentPrefix.isEmpty() ? "" : currentPrefix + "/";
+		/*String searchPrefix = currentPrefix.isEmpty() ? "" : currentPrefix + "/";
 
 		if (userInput != null) {	// list with argument.
 			String[] splits = userInput.split("\\s+");
@@ -222,10 +225,86 @@ public class Downloader {
 			} else {
 				return false;	// empty.
 			}
+		}*/
+		listArg = createArgument(userInput, currentPrefix);
+		if (listArg == null) {
+			return false;
 		}
 
-		list(searchPrefix, recursive, 0, userInput != null);
+		list(/*searchPrefix*/listArg.getSearchPrefix(), recursive, 0, userInput != null);
 		return true;
+	}
+
+	/**
+	 * create list argument.
+	 * @param userInput
+	 * @param currentPrefix
+	 * @return list argument class. null if invalid argument.
+	 */
+	private static ListArgument createArgument(String userInput, String currentPrefix) {
+		ListArgument arg = new ListArgument();
+		arg.setSearchPrefix(currentPrefix.isEmpty() ? "" : currentPrefix + DIR_SEPARATOR);
+
+		if (userInput != null) {	// list with argument.
+			String[] splits = userInput.split("\\s+");
+			String argument = removeQuote(userInput.substring(splits[0].length()).trim());
+			if (!argument.isEmpty()) {
+				int index = argument.indexOf('?');
+				if (index > -1) {
+					return null;
+				}
+
+				index = argument.indexOf(ASTERISK);	// currently not supporting wild card.
+				if (index > -1) {
+					int lastIndex = argument.lastIndexOf(ASTERISK);
+					if (lastIndex != index) {	// only 1 asterisk allowed.
+						return null;
+					}
+					index = splits[splits.length - 1].indexOf(ASTERISK);
+					if (index < 0) {
+						return null;	// only last name can be wild card.
+					}
+
+					arg.setWildcard(true);	// wild card search.
+				}
+
+				String nextPrefix = resolveTargetPrefix(currentPrefix, argument);
+				if (nextPrefix != null) {
+					if (argument.endsWith(DIR_SEPARATOR)) {
+						arg.setDirectory(true);
+					}
+					if (arg.isWildcard()) {
+						String[] split = argument.split(DIR_SEPARATOR);
+						arg.setNamePattern(split[split.length - 1]);
+
+						String searchPrefix = arg.getSearchPrefix();
+						for (int i = 0; i < split.length - 1; i++) {	// add user input except last one.
+							if (!searchPrefix.isEmpty() && !searchPrefix.endsWith(DIR_SEPARATOR)) {
+								searchPrefix += DIR_SEPARATOR;
+							}
+							searchPrefix += split[i];
+						}
+						if (!searchPrefix.isEmpty() && !searchPrefix.endsWith(DIR_SEPARATOR)) {
+							searchPrefix += DIR_SEPARATOR;
+						}
+						arg.setSearchPrefix(searchPrefix);
+
+					} else {
+						String searchPrefix = arg.getSearchPrefix() + nextPrefix;
+						if (arg.isDirectory()) {
+							searchPrefix += DIR_SEPARATOR;
+						}
+						arg.setSearchPrefix(searchPrefix);
+					}
+				} else {
+					return null;	// path resolve failed.
+				}
+			} else {
+				return null;	// empty argument.
+			}
+		}
+
+		return arg;
 	}
 
 	/**
@@ -239,7 +318,7 @@ public class Downloader {
 		ListObjectsV2Request request = ListObjectsV2Request.builder()
 				.bucket(bucket)
 				.prefix(searchPrefix)
-				.delimiter("/")
+				.delimiter(DIR_SEPARATOR)
 				.build();
 
 		DirectoryList dirList = new DirectoryList(searchPrefix, this);
@@ -248,18 +327,20 @@ public class Downloader {
 		dirList.setHasArgument(hasArgument);
 
 		String searchName = null;
-		if (hasArgument && !searchPrefix.endsWith("/") && (depth == 0)) {
-			String[] searchNames = searchPrefix.split("/");
-			searchName = searchNames[searchNames.length - 1];
+		if (hasArgument && !searchPrefix.endsWith(DIR_SEPARATOR) && (depth == 0)) {
+			if (!listArg.isWildcard()) {
+				String[] searchNames = searchPrefix.split(DIR_SEPARATOR);
+				searchName = searchNames[searchNames.length - 1];
+			}
 		}
 
 		for (ListObjectsV2Response response : s3.listObjectsV2Paginator(request)) {
 			for (CommonPrefix cmnPrefix : response.commonPrefixes()) {
 				if (searchName == null) {
-					dirList.addDirectory(cmnPrefix);
+					dirList.addDirectory(cmnPrefix);	// TODO: wild card check.
 				} else {
 					String path = cmnPrefix.prefix();
-					String[] names = path.split("/");
+					String[] names = path.split(DIR_SEPARATOR);
 					if (searchName.equals(names[names.length - 1])) {
 						dirList.addDirectory(cmnPrefix);
 						dirList.setHitDirectory(true);
@@ -273,11 +354,11 @@ public class Downloader {
 						continue;
 					}
 				}
-				if (searchName == null) {
+				if (searchName == null) {	// TODO: wild card check.
 					dirList.addFile(s3Obj);
 				} else {
 					String path = s3Obj.key();
-					String[] names = path.split("/");
+					String[] names = path.split(DIR_SEPARATOR);
 					if (searchName.equals(names[names.length - 1])) {
 						dirList.addFile(s3Obj);
 					}
@@ -309,13 +390,13 @@ public class Downloader {
 	 * @return true if exist.
 	 */
 	private boolean isDirectoryExist(String nextPrefix) {
-		if (!nextPrefix.endsWith("/") && !nextPrefix.isEmpty()) {
-			nextPrefix += "/";
+		if (!nextPrefix.endsWith(DIR_SEPARATOR) && !nextPrefix.isEmpty()) {
+			nextPrefix += DIR_SEPARATOR;
 		}
 		ListObjectsV2Request request = ListObjectsV2Request.builder()
 				.bucket(bucket)
 				.prefix(nextPrefix)
-				.delimiter("/")
+				.delimiter(DIR_SEPARATOR)
 				.maxKeys(1)
 				.build();
 		ListObjectsV2Response response = s3.listObjectsV2(request);
@@ -331,17 +412,17 @@ public class Downloader {
 	private static String resolveTargetPrefix(String currentPrefix, String userInput) {
 		Deque<String> target = new ArrayDeque<>();
 
-		if (!userInput.startsWith("/") && !currentPrefix.isEmpty()) {
-			for (String part : currentPrefix.split("/")) {
+		if (!userInput.startsWith(DIR_SEPARATOR) && !currentPrefix.isEmpty()) {
+			for (String part : currentPrefix.split(DIR_SEPARATOR)) {
 				if (!part.isEmpty()) {
 					target.addLast(part);
 				}
 			}
 		}
 
-		String input = userInput.startsWith("/") ? userInput.substring(1) : userInput;
+		String input = userInput.startsWith(DIR_SEPARATOR) ? userInput.substring(1) : userInput;
 
-		for (String part : input.split("/", -1)) {
+		for (String part : input.split(DIR_SEPARATOR, -1)) {
 			if (part.isEmpty()) {
 				continue;
 			}
@@ -365,7 +446,7 @@ public class Downloader {
 			target.addLast(part);
 		}
 
-		return String.join("/", target);
+		return String.join(DIR_SEPARATOR, target);
 	}
 
 	/**
@@ -379,22 +460,22 @@ public class Downloader {
 		String filePath = userInput.substring(DL.length());
 		filePath = removeQuote(filePath.trim());
 
-		if (filePath.endsWith("/")) {
+		if (filePath.endsWith(DIR_SEPARATOR)) {
 			System.out.println("You cannot download directory.");
 			return;
 		}
 
 		String downloadFilePath = null;
-		if (filePath.startsWith("/")) {
+		if (filePath.startsWith(DIR_SEPARATOR)) {
 			downloadFilePath = filePath.substring(1);
 		} else {
 			if (!currentPrefix.isEmpty()) {
-				downloadFilePath = currentPrefix + "/" + filePath;
+				downloadFilePath = currentPrefix + DIR_SEPARATOR + filePath;
 			} else {
 				downloadFilePath = filePath;
 			}
 		}
-		String[] fileNames = downloadFilePath.split("/");
+		String[] fileNames = downloadFilePath.split(DIR_SEPARATOR);
 
 		File renameDownloadFile = null;
 		File downloadFile = new File(downloadDir, fileNames[fileNames.length - 1]);

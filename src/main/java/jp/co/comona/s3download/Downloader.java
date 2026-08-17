@@ -250,23 +250,16 @@ public class Downloader {
 						arg.setDirectory(true);
 					}
 					if (arg.isWildcard()) {
-						String[] split = argument.split(DIR_SEPARATOR);
+						String[] split = nextPrefix.split(DIR_SEPARATOR);
 						arg.setNamePattern(split[split.length - 1]);
-
-						String searchPrefix = arg.getSearchPrefix();
-						for (int i = 0; i < split.length - 1; i++) {	// add user input except last one.
-							if (!searchPrefix.isEmpty() && !searchPrefix.endsWith(DIR_SEPARATOR)) {
-								searchPrefix += DIR_SEPARATOR;
-							}
-							searchPrefix += split[i];
-						}
+						int lastIndex = nextPrefix.lastIndexOf(DIR_SEPARATOR);
+						String searchPrefix = lastIndex > -1 ? nextPrefix.substring(0, lastIndex) : "";
 						if (!searchPrefix.isEmpty() && !searchPrefix.endsWith(DIR_SEPARATOR)) {
 							searchPrefix += DIR_SEPARATOR;
 						}
 						arg.setSearchPrefix(searchPrefix);
-
 					} else {
-						String searchPrefix = arg.getSearchPrefix() + nextPrefix;
+						String searchPrefix = nextPrefix;
 						if (arg.isDirectory()) {
 							searchPrefix += DIR_SEPARATOR;
 						}

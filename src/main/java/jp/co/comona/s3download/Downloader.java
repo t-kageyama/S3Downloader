@@ -230,6 +230,11 @@ public class Downloader {
 					return null;
 				}
 
+				splits = argument.split(DIR_SEPARATOR);
+				if (argument.endsWith(DIR_SEPARATOR) && (".".equals(splits[splits.length - 1]) || "..".equals(splits[splits.length - 1]))) {
+					argument = argument.substring(0, argument.length() - 1);	// convert "./" -> ".", "../" -> "..".
+				}
+
 				index = argument.indexOf(ASTERISK);	// currently not supporting wild card.
 				if (index > -1) {
 					int lastIndex = argument.lastIndexOf(ASTERISK);
@@ -250,8 +255,8 @@ public class Downloader {
 						arg.setDirectory(true);
 					}
 					if (arg.isWildcard()) {
-						String[] split = nextPrefix.split(DIR_SEPARATOR);
-						arg.setNamePattern(split[split.length - 1]);
+						splits = nextPrefix.split(DIR_SEPARATOR);
+						arg.setNamePattern(splits[splits.length - 1]);
 						int lastIndex = nextPrefix.lastIndexOf(DIR_SEPARATOR);
 						String searchPrefix = lastIndex > -1 ? nextPrefix.substring(0, lastIndex) : "";
 						if (!searchPrefix.isEmpty() && !searchPrefix.endsWith(DIR_SEPARATOR)) {
@@ -299,6 +304,9 @@ public class Downloader {
 		if (hasArgument && !searchPrefix.endsWith(DIR_SEPARATOR) && (depth == 0) && !listArg.isWildcard()) {
 			String[] searchNames = searchPrefix.split(DIR_SEPARATOR);
 			searchName = searchNames[searchNames.length - 1];
+			if (searchName.isEmpty()) {
+				searchName = null;
+			}
 		}
 
 		for (ListObjectsV2Response response : s3.listObjectsV2Paginator(request)) {

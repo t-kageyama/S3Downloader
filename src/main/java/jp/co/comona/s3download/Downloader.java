@@ -615,14 +615,14 @@ public class Downloader {
 	 * print help.
 	 */
 	private static void printHelp() {
-		System.out.println("help, ?	shows this help.");
-		System.out.println("pwd	show current directory (prefix).");
-		System.out.println("ls	list current directory (prefix).");
-		System.out.println("ls target-path	list target file/directory (prefix). 1 * wilcard allowed.");
-		System.out.println("lsr	list current directory (prefix) & beneath.");
-		System.out.println("lsr target-path	list target file/directory (prefix) & beneath. 1 * wilcard allowed.");
-		System.out.println("cd directory-path	change current directory (prefix).");
-		System.out.println("dl file-path	download file (prefix).");
+		System.out.println("help, ?            show this help.");
+		System.out.println("pwd                show the current directory (prefix).");
+		System.out.println("ls                 list the current directory (prefix).");
+		System.out.println("ls target-path     list the specified file or directory. One * wildcard is allowed.");
+		System.out.println("lsr                list the current directory (prefix) recursively.");
+		System.out.println("lsr target-path    list the specified file or directory recursively. One * wildcard is allowed.");
+		System.out.println("cd directory-path  change the current directory (prefix).");
+		System.out.println("dl file-path       download the specified file.");
 	}
 
 	/**

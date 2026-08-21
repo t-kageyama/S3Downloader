@@ -230,9 +230,20 @@ public class Downloader {
 					return null;
 				}
 
+				boolean fromRoot = false;
 				splits = argument.split(DIR_SEPARATOR);
-				if (argument.endsWith(DIR_SEPARATOR) && (".".equals(splits[splits.length - 1]) || "..".equals(splits[splits.length - 1]))) {
+				if ((splits.length > 0) && argument.endsWith(DIR_SEPARATOR) && (".".equals(splits[splits.length - 1]) || "..".equals(splits[splits.length - 1]))) {
 					argument = argument.substring(0, argument.length() - 1);	// convert "./" -> ".", "../" -> "..".
+				} else {
+					if (splits.length == 0) {
+						boolean hasNoSlash = argument.matches("[^/]+");	// check argument contains other than "/".
+						if (!hasNoSlash) {	// list root directory.
+							argument = "";
+							fromRoot = true;
+						}
+					} else {
+						fromRoot = argument.startsWith(DIR_SEPARATOR);
+					}
 				}
 
 				index = argument.indexOf(ASTERISK);	// currently not supporting wild card.
@@ -249,7 +260,7 @@ public class Downloader {
 					arg.setWildcard(true);	// wild card search.
 				}
 
-				String nextPrefix = resolveTargetPrefix(currentPrefix, argument);
+				String nextPrefix = resolveTargetPrefix(fromRoot ? "" : currentPrefix, argument);
 				if (nextPrefix != null) {
 					if (argument.endsWith(DIR_SEPARATOR)) {
 						arg.setDirectory(true);

@@ -153,7 +153,6 @@ The following features may be added in future releases.
 Implementation order is not fixed.
 
 - Tab completion
-- Wildcard support
 - Case-insensitive search
 
 ## Philosophy
@@ -165,6 +164,9 @@ S3 Downloader is intentionally designed to solve one problem well:
 Advanced S3 operations should be handled by dedicated S3 management tools.
 
 ## Version History
+
+### 1.3.0
+- Added wildcard support for `ls` and `lsr` command arguments.
 
 ### 1.2.0
 - Added arguments to `ls` and `lsr`
